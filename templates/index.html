@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<!-- Основной язык и динамическая тема (управляется бэкендом) -->
+<html lang="ru" data-theme="{{ theme }}">
+<head>
+    <!-- мета теги и заголовок -->
+    <meta charset="UTF-8">
+    <title>Погода по адресу</title>
+
+    <!-- подключение Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Иконки Bootstrap -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
+    <!-- API Яндекс.Карт с ключом из конфига -->
+    <script src="https://api-maps.yandex.ru/2.1/?apikey={{ config.YANDEX_API_KEY }}&lang=ru_RU"></script>
+
+    <!-- Стили с динамическими переменными для тем -->
+    <style>
+        /* Светлая тема по умолчанию */
+        :root {
+            --bg-gradient-start: #a1c4fd;    /* Начало градиента */
+            --bg-gradient-end: #c2e9fb;      /* Конец градиента */
+            --text-color: #212529;            /* Цвет текста */
+            --card-bg: rgba(255, 255, 255, 0.9); /* Фон карточек */
+            --detail-bg: #f8f9fa;            /* Фон деталей */
+        }
+
+        /* Темная тема */
+        [data-theme="dark"] {
+            --bg-gradient-start: #0a192f;
+            --bg-gradient-end: #172a45;
+            --text-color: #ffffff;
+            --card-bg: rgba(14, 54, 117, 0.9);
+            --detail-bg: #172a45;
+        }
+
+        /* стили для тела страницы */
+        body {
+            background: linear-gradient(120deg, var(--bg-gradient-start), var(--bg-gradient-end));
+            min-height: 100vh;
+            color: var(--text-color);
+            transition: all 0.3s ease;
+        }
+
+        /* Карточка с погодой */
+        .weather-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        /* кнопка переключения темы */
+        .theme-toggle-btn {
+            color: var(--text-color) !important;
+            transition: transform 0.3s ease;
+        }
+
+        /* анемация кнопки при наведении */
+        .theme-toggle-btn:hover {
+            transform: rotate(180deg);
+        }
+
+        /* Контейнер для карты */
+        #map {
+            height: 400px;
+            border-radius: 15px;
+            margin-top: 20px;
+            border: 2px solid var(--text-color);
+            background: transparent;
+        }
+    </style>
+</head>
+<body>
+    <!-- Контейнер Bootstrap -->
+    <div class="container py-5">
+        <!-- форма для переключения темы -->
+        <form method="POST" class="d-flex justify-content-end mb-4">
+            <input type="hidden" name="theme_toggle" value="1">
+            <button type="submit" class="btn btn-link theme-toggle-btn">
+                <!-- луна/солнце -->
+                <i class="bi {{ 'bi-moon-stars' if theme == 'light' else 'bi-sun' }} fs-4"></i>
+            </button>
+        </form>
+
+        <!-- основная карточка с контентом -->
+        <div class="weather-card p-4 mb-4">
+            <!-- форма поиска адреса -->
+            <form method="POST">
+                <div class="input-group">
+                    <input type="text"
+                           name="address"
+                           class="form-control"
+                           placeholder="Введите город или адрес"
+                           required>         <!-- Обязательное поле -->
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i>  <!-- Иконка поиска -->
+                    </button>
+                </div>
+            </form>
+
+            <!-- блок ошибок -->
+            {% if error %}
+                <div class="alert alert-danger mt-3">{{ error }}</div>
+            {% endif %}
+
+            <!-- блок с данными о погоде -->
+            {% if weather %}
+                <div class="text-center mt-4">
+                    <h1 class="display-4 mb-3">{{ weather.address }}</h1>  <!-- Название места -->
+
+                    <!-- блок с температурой и иконкой -->
+                    <div class="d-flex align-items-center justify-content-center gap-4 mb-4">
+                        <img src="http://openweathermap.org/img/wn/{{ weather.icon }}@4x.png"
+                             style="width: 120px; height: 120px;"
+                             alt="Иконка погоды">
+                        <div style="font-size: 4rem; font-weight: 700;">{{ weather.temp }}°C</div>  <!-- Температура -->
+                    </div>
+
+                    <!-- детали погоды в 4 колонках -->
+                    <div class="row g-3 text-center">
+                        <!-- Ощущаемая температура -->
+                        <div class="col-6 col-md-3">
+                            <div class="p-2 rounded" style="background: var(--detail-bg);">
+                                <i class="bi bi-thermometer-half me-2"></i>
+                                Ощущается {{ weather.feels_like }}°C
+                            </div>
+                        </div>
+
+                        <!-- Скорость ветра -->
+                        <div class="col-6 col-md-3">
+                            <div class="p-2 rounded" style="background: var(--detail-bg);">
+                                <i class="bi bi-wind me-2"></i>
+                                Ветер {{ weather.wind_speed }} м/с
+                            </div>
+                        </div>
+
+                        <!-- Влажность -->
+                        <div class="col-6 col-md-3">
+                            <div class="p-2 rounded" style="background: var(--detail-bg);">
+                                <i class="bi bi-droplet me-2"></i>
+                                Влажность {{ weather.humidity }}%
+                            </div>
+                        </div>
+
+                        <!-- Давление -->
+                        <div class="col-6 col-md-3">
+                            <div class="p-2 rounded" style="background: var(--detail-bg);">
+                                <i class="bi bi-speedometer2 me-2"></i>
+                                Давление {{ weather.pressure }} гПа
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- контейнер для карты -->
+                    <div id="map" class="mt-4"></div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Кнопка перехода к истории -->
+        <div class="text-center">
+            <a href="/history" class="btn btn-outline-secondary">
+                <i class="bi bi-clock-history me-2"></i>История запросов
+            </a>
+        </div>
+    </div>
+
+    <!-- мкрипт для Яндекс.Карт  -->
+    {% if weather %}
+    <script>
+        // Инициализация карты после загрузки API
+        ymaps.ready(init);
+
+        function init() {
+            // создание карты с координатами из бэкенда
+            const map = new ymaps.Map('map', {
+                center: [{{ weather.lat }}, {{ weather.lon }}],
+                zoom: 12,
+                controls: ['zoomControl', 'typeSelector', 'fullscreenControl']
+            });
+
+            // создание метки на карте
+            const placemark = new ymaps.Placemark(
+                [{{ weather.lat }}, {{ weather.lon }}],  // Координаты
+                {
+                    hintContent: 'Текущее местоположение'
+                },
+                {
+                    preset: 'islands#darkBlueIcon',
+                    iconColor: '#2a5fff'
+                }
+            );
+            map.geoObjects.add(placemark);  // Добавление метки на карту
+
+            // применение темной темы для карты
+            {% if theme == 'dark' %}
+            map.options.set('theme', 'dark');
+            {% endif %}
+        }
+    </script>
+    {% endif %}
+</body>
+</html>
